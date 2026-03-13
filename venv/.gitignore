@@ -1,0 +1,32 @@
+# Python
+# Byte-code files
+*.pyc
+__pycache__/
+*.$py.class
+
+# Distributions and packaging
+.Python
+build/
+dist/
+wheels/
+*.egg-info/
+*.egg
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env/
+
+# Miscellaneous
+*.log
+*.seed
+*.pid
+*.mo
+*.pot
+
+# Editors and IDEs
+.idea/  # Pycharm
+.vscode/ # VS Code
+*.swp
+*.bak

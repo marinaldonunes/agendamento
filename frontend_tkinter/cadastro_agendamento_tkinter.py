@@ -5,6 +5,7 @@ from tkinter import messagebox, ttk
 from agendamento import Agendamento
 from agendamentoDao import AgendamentoDao
 from agenda import Agenda
+from agendaDao import AgendaDao
 from clienteDao import ClienteDao
 from profissionalDao import ProfissionalDao
 from servicoDao import ServicoDao
@@ -22,6 +23,7 @@ class TelaCadastroAgendamento(ttk.Frame):
         self.cliente_map = {}
         self.servico_map = {}
         self.prof_map = {}
+        self.agenda_map = {}
         self.columnconfigure(1, weight=1)
         self._montar_form()
         self._montar_lista()
@@ -43,17 +45,15 @@ class TelaCadastroAgendamento(ttk.Frame):
         self.prof_var = tk.StringVar()
         self.prof_combo = ttk.Combobox(self, textvariable=self.prof_var, state="readonly")
         self.prof_combo.grid(row=2, column=1, sticky="ew", pady=4)
+        self.prof_combo.bind("<<ComboboxSelected>>", lambda _: self._carregar_agendas_disponiveis())
 
-        ttk.Label(self, text="Data (dd/mm/aaaa)").grid(row=3, column=0, sticky="w", pady=4)
-        self.data_var = tk.StringVar()
-        ttk.Entry(self, textvariable=self.data_var).grid(row=3, column=1, sticky="ew", pady=4)
-
-        ttk.Label(self, text="Hora (HHMM)").grid(row=4, column=0, sticky="w", pady=4)
-        self.hora_var = tk.StringVar()
-        ttk.Entry(self, textvariable=self.hora_var).grid(row=4, column=1, sticky="ew", pady=4)
+        ttk.Label(self, text="Agenda disponivel").grid(row=3, column=0, sticky="w", pady=4)
+        self.agenda_var = tk.StringVar()
+        self.agenda_combo = ttk.Combobox(self, textvariable=self.agenda_var, state="readonly")
+        self.agenda_combo.grid(row=3, column=1, sticky="ew", pady=4)
 
         botoes = ttk.Frame(self)
-        botoes.grid(row=5, column=0, columnspan=2, sticky="e", pady=(8, 6))
+        botoes.grid(row=4, column=0, columnspan=2, sticky="e", pady=(8, 6))
         ttk.Button(botoes, text="Salvar", command=self._salvar).grid(row=0, column=0, padx=(0, 8))
         ttk.Button(botoes, text="Atualizar combos", command=self._carregar_combos).grid(row=0, column=1)
 
@@ -73,6 +73,7 @@ class TelaCadastroAgendamento(ttk.Frame):
         self._carregar_clientes()
         self._carregar_servicos()
         self._carregar_profissionais()
+        self._carregar_agendas_disponiveis()
         self._carregar_agendamentos_cliente()
 
     def _carregar_clientes(self):
@@ -83,8 +84,7 @@ class TelaCadastroAgendamento(ttk.Frame):
             self.cliente_map[chave] = reg[0]
             valores.append(chave)
         self.cliente_combo["values"] = valores
-        if valores:
-            self.cliente_combo.current(0)
+        self.cliente_var.set("")
 
     def _carregar_servicos(self):
         self.servico_map.clear()
@@ -98,8 +98,7 @@ class TelaCadastroAgendamento(ttk.Frame):
             self.servico_map[chave] = reg[0]
             valores.append(chave)
         self.servico_combo["values"] = valores
-        if valores:
-            self.servico_combo.current(0)
+        self.servico_var.set("")
 
     def _carregar_profissionais(self):
         self.prof_map.clear()
@@ -109,8 +108,47 @@ class TelaCadastroAgendamento(ttk.Frame):
             self.prof_map[chave] = reg[0]
             valores.append(chave)
         self.prof_combo["values"] = valores
-        if valores:
-            self.prof_combo.current(0)
+        self.prof_var.set("")
+
+    def _carregar_agendas_disponiveis(self):
+        self.agenda_map.clear()
+        valores = []
+        prof_id = self.prof_map.get(self.prof_var.get().strip())
+        if not prof_id:
+            self.agenda_combo["values"] = []
+            return
+
+        agendas = AgendaDao.consulta_agendas_prof(self.conexao, prof_id)
+        if agendas == -1:
+            self.agenda_combo["values"] = []
+            return
+
+        ocupados = set()
+        regs = AgendamentoDao.consultar_agendamentos_profissional(self.conexao, prof_id)
+        if regs != -1:
+            for reg in regs:
+                ocupados.add((reg[4], reg[5]))
+
+        for data, hora in agendas:
+            if (data, hora) in ocupados:
+                continue
+            data_fmt = self._formatar_data(data)
+            chave = f"{data_fmt} {hora}"
+            self.agenda_map[chave] = (data, hora)
+            valores.append(chave)
+
+        self.agenda_combo["values"] = valores
+        self.agenda_var.set("")
+
+    def _formatar_data(self, data):
+        if isinstance(data, str):
+            try:
+                return dt.datetime.strptime(data, "%Y-%m-%d").strftime("%d/%m/%Y")
+            except ValueError:
+                return data
+        if hasattr(data, "strftime"):
+            return data.strftime("%d/%m/%Y")
+        return str(data)
 
     def _objetos_selecionados(self):
         cliente_id = self.cliente_map.get(self.cliente_var.get().strip())
@@ -129,16 +167,12 @@ class TelaCadastroAgendamento(ttk.Frame):
             messagebox.showerror("Validação", "Selecione cliente, serviço e profissional válidos.")
             return
 
-        data_txt = self.data_var.get().strip()
-        hora = self.hora_var.get().strip()
-        if len(hora) != 4 or not hora.isdigit():
-            messagebox.showerror("Validação", "Hora deve estar no formato HHMM.")
+        agenda_sel = self.agenda_var.get().strip()
+        agenda = self.agenda_map.get(agenda_sel)
+        if not agenda:
+            messagebox.showerror("Validação", "Selecione uma agenda disponível.")
             return
-        try:
-            data = dt.datetime.strptime(data_txt, "%d/%m/%Y")
-        except ValueError:
-            messagebox.showerror("Validação", "Data inválida. Use dd/mm/aaaa.")
-            return
+        data, hora = agenda
 
         agenda = Agenda(profissional, data, hora)
         agd = Agendamento(0, cliente, servico, agenda)
@@ -148,8 +182,11 @@ class TelaCadastroAgendamento(ttk.Frame):
             return
 
         messagebox.showinfo("Sucesso", f"Agendamento cadastrado. ID: {novo_id}")
-        self.data_var.set("")
-        self.hora_var.set("")
+        self.cliente_var.set("")
+        self.servico_var.set("")
+        self.prof_var.set("")
+        self.agenda_var.set("")
+        self._carregar_agendas_disponiveis()
         self._carregar_agendamentos_cliente()
 
     def _carregar_agendamentos_cliente(self):

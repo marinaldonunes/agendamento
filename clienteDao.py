@@ -128,6 +128,39 @@ class ClienteDao:
         return None
 
     @staticmethod
+    def consulta_contatos_cliente(conexao, p_id):
+        comando_contatos = "select contato from contatos_clientes where id=?"
+        contatos = []
+        try:
+            cursor_cont = conexao.cursor()
+            for r_cont in cursor_cont.execute(comando_contatos, (p_id,)):
+                contatos.append(r_cont[0])
+        except sql.DatabaseError as err:
+            print("Contatos do cliente nÃ£o puderam ser consultados - Detalhe: {}".format(err))
+        return contatos
+
+    @staticmethod
+    def consulta_cliente_nome(conexao, p_nome):
+        comando = "select id, nome, sobrenome, dt_nascimento, cpf, nome_mae, sexo from clientes where nome like ?"
+        comando_contatos = "select contato from contatos_clientes where id=?"
+        try:
+            lista_clientes = list()
+            cursor = conexao.cursor()
+            for id, nome, sobrenome, dtnasc, cpf, mae, sexo in cursor.execute(comando, (p_nome,)):
+                ret_cliente = Cliente(nome, sobrenome, dtnasc, cpf, mae, sexo, p_id=id)
+
+                cursor_cont = conexao.cursor()
+                for r_cont in cursor_cont.execute(comando_contatos, (id,)):
+                    ret_cliente.get_contatos().append(r_cont[0])
+
+                lista_clientes.append(ret_cliente)
+
+            return lista_clientes
+        except sql.DatabaseError as err:
+            print("Cliente nÃ£o pode ser consultado - Detalhe: {}".format(err))
+        return None
+
+    @staticmethod
     def consulta_clientes(conexao):
         comando = 'select a.id, a.nome, a.sobrenome, a.dt_nascimento, a.nome_mae, a.cpf, a.sexo from clientes a'
         listaclientes = []
@@ -142,20 +175,21 @@ class ClienteDao:
     @staticmethod
     def atualiza_cliente(conexao, cli_atual, cli_novo):
         comando_atu_cliente = " update clientes " \
-                              " set nome = ?, dt_nascimento = ?, nome_mae = ?,  cpf= ?, sexo = ? " \
+                              " set nome = ?, sobrenome = ?, dt_nascimento = ?, nome_mae = ?,  cpf= ?, sexo = ? " \
                               " where id = ?"
         comando_exl_contatos = 'delete from contatos_clientes where id = ?'
         cmd_insert_contato = "insert into contatos_clientes(id, contato) values(?, ?)"
         try:
             cursor = conexao.cursor()
             if (cli_atual.get_nome() != cli_novo.get_nome() or
+                    cli_atual.get_sobrenome() != cli_novo.get_sobrenome() or
                     cli_atual.get_dtnascimento() != cli_novo.get_dtnascimento() or
                     cli_atual.get_cpf() != cli_novo.get_cpf() or
                     cli_atual.get_nome_mae() != cli_novo.get_nome_mae() or
                     cli_atual.get_sexo() != cli_novo.get_sexo()):
 
                 dt_nasc_sql = cli_novo.get_dtnascimento().strftime('%Y-%m-%d') if hasattr(cli_novo.get_dtnascimento(), 'strftime') else cli_novo.get_dtnascimento()
-                cursor.execute(comando_atu_cliente, (cli_novo.get_nome(), dt_nasc_sql, cli_novo.get_nome_mae(),
+                cursor.execute(comando_atu_cliente, (cli_novo.get_nome(), cli_novo.get_sobrenome(), dt_nasc_sql, cli_novo.get_nome_mae(),
                                cli_novo.get_cpf(), cli_novo.get_sexo(), cli_atual.get_id()))
 
                 # Exclui e reinclui todos os contatos

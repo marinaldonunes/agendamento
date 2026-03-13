@@ -40,7 +40,7 @@ class TelaCadastroAgenda(ttk.Frame):
         botoes = ttk.Frame(self)
         botoes.grid(row=3, column=0, columnspan=2, sticky="e", pady=(8, 6))
         ttk.Button(botoes, text="Salvar", command=self._salvar).grid(row=0, column=0, padx=(0, 8))
-        ttk.Button(botoes, text="Atualizar lista", command=self._carregar_agendas_do_profissional).grid(row=0, column=1)
+        ttk.Button(botoes, text="Atualizar lista", command=self._carregar_profissionais).grid(row=0, column=1)
 
     def _montar_lista(self):
         cols = ("data", "hora")
@@ -58,9 +58,7 @@ class TelaCadastroAgenda(ttk.Frame):
             self.prof_map[chave] = reg[0]
             valores.append(chave)
         self.prof_combo["values"] = valores
-        if valores:
-            self.prof_combo.current(0)
-            self._carregar_agendas_do_profissional()
+        self.prof_var.set("")
 
     def _profissional_selecionado(self):
         chave = self.prof_var.get().strip()
@@ -95,6 +93,7 @@ class TelaCadastroAgenda(ttk.Frame):
         messagebox.showinfo("Sucesso", "Horário de agenda cadastrado.")
         self.data_var.set("")
         self.hora_var.set("")
+        self.prof_var.set("")
         self._carregar_agendas_do_profissional()
 
     def _carregar_agendas_do_profissional(self):
