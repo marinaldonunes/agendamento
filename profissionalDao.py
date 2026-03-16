@@ -145,15 +145,22 @@ class ProfissionalDao:
         cmd_insert_contato = "insert into contatos_profissionais(id, contato) values(?, ?)"
         try:
             cursor = conexao.cursor()
-            if (prof_atual.get_nome() != prof_novo.get_nome() or
-                    prof_atual.get_sobrenome() != prof_novo.get_sobrenome() or
-                    prof_atual.get_nr_registro() != prof_novo.get_nr_registro() or
-                    prof_atual.get_uf_registro() != prof_novo.get_uf_registro() or
-                    prof_atual.get_sigla_conselho() != prof_novo.get_sigla_conselho()):
+            mudou_dados = (
+                prof_atual.get_nome() != prof_novo.get_nome()
+                or prof_atual.get_sobrenome() != prof_novo.get_sobrenome()
+                or prof_atual.get_nr_registro() != prof_novo.get_nr_registro()
+                or prof_atual.get_uf_registro() != prof_novo.get_uf_registro()
+                or prof_atual.get_sigla_conselho() != prof_novo.get_sigla_conselho()
+            )
+            contatos_atual = prof_atual.get_contatos() or []
+            contatos_novo = prof_novo.get_contatos() or []
+            mudou_contatos = contatos_atual != contatos_novo
 
+            if mudou_dados:
                 cursor.execute(comando_atu_prof, (prof_novo.get_nome(), prof_novo.get_sobrenome(), prof_novo.get_nr_registro(),
                                prof_novo.get_uf_registro(), prof_novo.get_sigla_conselho(), prof_novo.get_id()))
 
+            if mudou_dados or mudou_contatos:
                 # Exclui e reinclui todos os contatos
                 cursor.execute(comando_exl_contatos, (prof_novo.get_id(),))
                 for contato in prof_novo.get_contatos():
@@ -161,7 +168,9 @@ class ProfissionalDao:
 
                 conexao.commit()
                 return prof_novo  # Sucesso, retorna os dados dos dados atualizados
+            return prof_novo
 
         except sql.DatabaseError as err:
-            print("Profissional não foi atualizado corretamente - Detalhe: {}".format(err))
-            return prof_atual # Ocorrendo erro, o metodo retorna os dados do cliente sem atualização
+            print("Profissional n??o foi atualizado corretamente - Detalhe: {}".format(err))
+            return prof_atual # Ocorrendo erro, o metodo retorna os dados do cliente sem atualiza????o
+

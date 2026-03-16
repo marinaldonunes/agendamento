@@ -15,6 +15,7 @@ class TelaCadastroServico(ttk.Frame):
         super().__init__(master, padding=12)
         self.conexao = conexao
         self.columnconfigure(1, weight=1)
+        self.columnconfigure(2, weight=0)
         self._montar_form()
         self._montar_lista()
         self._carregar_servicos()
@@ -29,6 +30,9 @@ class TelaCadastroServico(ttk.Frame):
         ttk.Label(self, text="Nome do serviço").grid(row=1, column=0, sticky="w", pady=4)
         self.nome_var = tk.StringVar()
         ttk.Entry(self, textvariable=self.nome_var).grid(row=1, column=1, sticky="ew", pady=4)
+        ttk.Button(self, text="Pesquisar nome", command=self._pesquisar_nome).grid(
+            row=1, column=2, sticky="w", padx=(8, 0), pady=4
+        )
 
         ttk.Label(self, text="Duração (minutos)").grid(row=2, column=0, sticky="w", pady=4)
         self.duracao_var = tk.StringVar()
@@ -36,11 +40,10 @@ class TelaCadastroServico(ttk.Frame):
 
         botoes = ttk.Frame(self)
         botoes.grid(row=3, column=0, columnspan=2, sticky="e", pady=(8, 6))
-        ttk.Button(botoes, text="Pesquisar nome", command=self._pesquisar_nome).grid(row=0, column=0, padx=(0, 8))
-        ttk.Button(botoes, text="Atualizar", command=self._atualizar).grid(row=0, column=1, padx=(0, 8))
-        ttk.Button(botoes, text="Excluir", command=self._excluir).grid(row=0, column=2, padx=(0, 8))
-        ttk.Button(botoes, text="Limpar", command=self._limpar).grid(row=0, column=3, padx=(0, 8))
-        ttk.Button(botoes, text="Salvar", command=self._salvar).grid(row=0, column=4)
+        ttk.Button(botoes, text="Atualizar", command=self._atualizar).grid(row=0, column=0, padx=(0, 8))
+        ttk.Button(botoes, text="Excluir", command=self._excluir).grid(row=0, column=1, padx=(0, 8))
+        ttk.Button(botoes, text="Limpar", command=self._limpar).grid(row=0, column=2, padx=(0, 8))
+        ttk.Button(botoes, text="Salvar", command=self._salvar).grid(row=0, column=3)
 
     def _montar_lista(self):
         cols = ("id", "nome_servico", "duracao_minutos")
@@ -50,6 +53,21 @@ class TelaCadastroServico(ttk.Frame):
         self.tree.heading("duracao_minutos", text="Duração")
         self.tree.grid(row=4, column=0, columnspan=2, sticky="nsew")
         self.rowconfigure(4, weight=1)
+        self.tree.bind("<Double-1>", self._on_tree_double_click)
+
+    def _on_tree_double_click(self, _event):
+        selecionado = self.tree.selection()
+        if not selecionado:
+            return
+        valores = self.tree.item(selecionado[0], "values")
+        if not valores:
+            return
+        serv_id = valores[0]
+        if not str(serv_id).isdigit():
+            return
+        servico = ServicoDao.consultar_servico_id(self.conexao, int(serv_id))
+        if servico:
+            self._preencher_form(servico)
 
     def _limpar(self):
         self.id_var.set("")

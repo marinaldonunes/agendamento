@@ -26,14 +26,50 @@ class AgendamentoDao:
                   "data date not null, " \
                   "hora varchar(4) not null, " \
                   "foreign key(id_cliente) references clientes(id), " \
-                  "foreign key(id_profissional, data, hora) references agenda(id_profissional, data, hora), " \
+                  "foreign key(id_profissional, data, hora) references agendas(id_profissional, data, horario), " \
                   "foreign key(id_servico) references servicos(id), unique (id_profissional, data, hora))"
 
         try:
             cursor = conexao.cursor()
             cursor.execute(comando)
+            AgendamentoDao._garantir_fk_agendas(conexao)
         except sql.DatabaseError as erro:
             print(erro)
+
+    @staticmethod
+    def _garantir_fk_agendas(conexao):
+        try:
+            cursor = conexao.cursor()
+            fks = cursor.execute("PRAGMA foreign_key_list(agendamentos)").fetchall()
+            if not fks:
+                return
+            fks_agendas = [fk for fk in fks if fk[2] == "agendas"]
+            fk_agenda_errado = any(fk[2] == "agenda" for fk in fks)
+            fk_colunas_erradas = any(fk[4] == "hora" for fk in fks_agendas)
+            if fk_agenda_errado or fk_colunas_erradas:
+                cursor.execute("ALTER TABLE agendamentos RENAME TO agendamentos_old")
+                cursor.execute(
+                    "create table agendamentos ("
+                    "id integer primary key autoincrement, "
+                    "id_cliente number not null, "
+                    "id_profissional number not null, "
+                    "id_servico number not null, "
+                    "data date not null, "
+                    "hora varchar(4) not null, "
+                    "foreign key(id_cliente) references clientes(id), "
+                    "foreign key(id_profissional, data, hora) references agendas(id_profissional, data, horario), "
+                    "foreign key(id_servico) references servicos(id), "
+                    "unique (id_profissional, data, hora)"
+                    ")"
+                )
+                cursor.execute(
+                    "insert into agendamentos (id, id_cliente, id_profissional, id_servico, data, hora) "
+                    "select id, id_cliente, id_profissional, id_servico, data, hora from agendamentos_old"
+                )
+                cursor.execute("drop table agendamentos_old")
+                conexao.commit()
+        except sql.DatabaseError as erro:
+            print("Erro ao ajustar FK de agendamentos - {}".format(erro))
 
     @staticmethod
     def inserir_agendamentos(conexao, p_agendamento):
@@ -55,6 +91,18 @@ class AgendamentoDao:
         except sql.DatabaseError as erro:
             print("Erro ao incluir agendamento. {}".format(erro))
         return -1
+
+    @staticmethod
+    def existe_agendamento(conexao, prof_id, data, hora):
+        comando = "select 1 from agendamentos where id_profissional = ? and data = ? and hora = ?"
+        try:
+            cursor = conexao.cursor()
+            data_sql = data.strftime('%Y-%m-%d') if hasattr(data, 'strftime') else data
+            cursor.execute(comando, (prof_id, data_sql, hora))
+            return cursor.fetchone() is not None
+        except sql.DatabaseError as erro:
+            print("Erro ao verificar agendamento. {} - {}".format((prof_id, data, hora), erro))
+        return False
 
 
     @staticmethod

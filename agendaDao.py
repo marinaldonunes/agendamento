@@ -14,7 +14,7 @@ class AgendaDao:
                   'id_profissional number not null,' \
                   'data date not null, ' \
                   'horario varchar(4) not null, ' \
-                  'primary key(id_profissional, data, horario) '\
+                  'primary key(id_profissional, data, horario), '\
                   'foreign key(id_profissional) references profissionais(id) ' \
                   ')'
 
@@ -59,6 +59,21 @@ class AgendaDao:
 
         except sql.DatabaseError as erro:
             print("Erro consultar agendas do profissional: {} - {}".format(id_profissional, erro))
+            return -1
+
+    @staticmethod
+    def consulta_agendas(conexao):
+
+        comando = 'select id_profissional, data, horario from agendas order by id_profissional, data, horario'
+
+        try:
+            registros = []
+            cursor = conexao.cursor()
+            for reg in cursor.execute(comando):
+                registros.append((reg[0], reg[1], reg[2]))
+            return registros
+        except sql.DatabaseError as erro:
+            print("Erro consultar todas as agendas - {}".format(erro))
             return -1
 
 

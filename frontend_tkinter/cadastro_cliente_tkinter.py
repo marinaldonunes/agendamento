@@ -28,6 +28,7 @@ class TelaCadastroCliente(ttk.Frame):
 
     def _monta_tela(self):
         self.columnconfigure(1, weight=1)
+        self.columnconfigure(2, weight=0)
 
         ttk.Label(self, text="ID").grid(row=7, column=0, sticky="w", pady=4)
         self.id_var = tk.StringVar()
@@ -38,6 +39,9 @@ class TelaCadastroCliente(ttk.Frame):
         ttk.Label(self, text="Nome").grid(row=0, column=0, sticky="w", pady=4)
         self.nome_var = tk.StringVar()
         ttk.Entry(self, textvariable=self.nome_var).grid(row=0, column=1, sticky="ew", pady=4)
+        ttk.Button(self, text="Pesquisar nome", command=self._pesquisar_nome).grid(
+            row=0, column=2, sticky="w", padx=(8, 0), pady=4
+        )
 
         ttk.Label(self, text="Sobrenome").grid(row=1, column=0, sticky="w", pady=4)
         self.sobrenome_var = tk.StringVar()
@@ -71,11 +75,10 @@ class TelaCadastroCliente(ttk.Frame):
 
         botoes = ttk.Frame(self)
         botoes.grid(row=8, column=0, columnspan=2, sticky="e", pady=(12, 0))
-        ttk.Button(botoes, text="Pesquisar nome", command=self._pesquisar_nome).grid(row=0, column=0, padx=(0, 8))
-        ttk.Button(botoes, text="Atualizar", command=self._atualizar).grid(row=0, column=1, padx=(0, 8))
-        ttk.Button(botoes, text="Excluir", command=self._excluir).grid(row=0, column=2, padx=(0, 8))
-        ttk.Button(botoes, text="Limpar", command=self._limpar).grid(row=0, column=3, padx=(0, 8))
-        ttk.Button(botoes, text="Salvar", command=self._salvar).grid(row=0, column=4)
+        ttk.Button(botoes, text="Atualizar", command=self._atualizar).grid(row=0, column=0, padx=(0, 8))
+        ttk.Button(botoes, text="Excluir", command=self._excluir).grid(row=0, column=1, padx=(0, 8))
+        ttk.Button(botoes, text="Limpar", command=self._limpar).grid(row=0, column=2, padx=(0, 8))
+        ttk.Button(botoes, text="Salvar", command=self._salvar).grid(row=0, column=3)
 
     def _monta_lista(self):
         cols = ("id", "nome", "sobrenome", "nome_mae", "cpf", "dt_nasc", "sexo", "contatos")
@@ -214,28 +217,18 @@ class TelaCadastroCliente(ttk.Frame):
             messagebox.showinfo("Resultado", "Nenhum cliente encontrado.")
             return
 
-        if len(clientes) > 1:
-            resumo = ", ".join(f"{c.get_id()} - {c.get_nome()} {c.get_sobrenome()}" for c in clientes)
-            messagebox.showinfo("Resultado", f"Foram encontrados {len(clientes)} clientes: {resumo}.")
+        if len(clientes) == 1:
+            self._preencher_form(clientes[0])
             return
 
-        self._preencher_form(clientes[0])
+        self._preencher_tree_com_clientes(clientes)
 
     def _preencher_form(self, cliente):
         self.id_var.set(str(cliente.get_id()))
         self.nome_var.set(cliente.get_nome())
         self.sobrenome_var.set(cliente.get_sobrenome())
         dtnasc = cliente.get_dtnascimento()
-        if hasattr(dtnasc, "strftime"):
-            dtnasc_txt = dtnasc.strftime("%d/%m/%Y")
-        else:
-            try:
-                dtnasc_txt = dt.datetime.strptime(str(dtnasc), "%Y-%m-%d").strftime("%d/%m/%Y")
-            except (ValueError, TypeError):
-                try:
-                    dtnasc_txt = dt.datetime.strptime(str(dtnasc), "%d/%m/%Y").strftime("%d/%m/%Y")
-                except (ValueError, TypeError):
-                    dtnasc_txt = str(dtnasc)
+        dtnasc_txt = self._formatar_data(dtnasc)
         self.dtnasc_var.set(dtnasc_txt)
         self.cpf_var.set(cliente.get_cpf())
         self.nome_mae_var.set(cliente.get_nome_mae())
@@ -243,6 +236,40 @@ class TelaCadastroCliente(ttk.Frame):
         self.contatos_txt.delete("1.0", tk.END)
         for contato in cliente.get_contatos():
             self.contatos_txt.insert(tk.END, contato + "\n")
+
+    def _preencher_tree_com_clientes(self, clientes):
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        for cliente in clientes:
+            dtnasc_txt = self._formatar_data(cliente.get_dtnascimento())
+            contatos = " / ".join(self._formatar_contato(c) for c in cliente.get_contatos())
+            self.tree.insert(
+                "",
+                tk.END,
+                values=(
+                    cliente.get_id(),
+                    cliente.get_nome(),
+                    cliente.get_sobrenome(),
+                    cliente.get_nome_mae(),
+                    cliente.get_cpf(),
+                    dtnasc_txt,
+                    cliente.get_sexo(),
+                    contatos,
+                ),
+            )
+
+    @staticmethod
+    def _formatar_data(data):
+        if hasattr(data, "strftime"):
+            return data.strftime("%d/%m/%Y")
+        try:
+            return dt.datetime.strptime(str(data), "%Y-%m-%d").strftime("%d/%m/%Y")
+        except (ValueError, TypeError):
+            try:
+                return dt.datetime.strptime(str(data), "%d/%m/%Y").strftime("%d/%m/%Y")
+            except (ValueError, TypeError):
+                return str(data)
 
     def _atualizar(self):
         id_txt = self.id_var.get().strip()

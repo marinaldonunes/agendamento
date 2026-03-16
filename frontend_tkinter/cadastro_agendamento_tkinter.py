@@ -68,6 +68,54 @@ class TelaCadastroAgendamento(ttk.Frame):
         self.tree.heading("hora", text="Hora")
         self.tree.grid(row=6, column=0, columnspan=2, sticky="nsew")
         self.rowconfigure(6, weight=1)
+        self.tree.bind("<Double-1>", self._on_tree_double_click)
+
+    def _on_tree_double_click(self, _event):
+        selecionado = self.tree.selection()
+        if not selecionado:
+            return
+        valores = self.tree.item(selecionado[0], "values")
+        if not valores:
+            return
+        _, cliente_txt, servico_txt, prof_txt, data, hora = valores
+        cliente_id = self._extrair_id(cliente_txt)
+        servico_id = self._extrair_id(servico_txt)
+        prof_id = self._extrair_id(prof_txt)
+
+        if cliente_id:
+            chave = self._chave_por_id(self.cliente_map, cliente_id)
+            if chave is None:
+                self._carregar_clientes()
+                chave = self._chave_por_id(self.cliente_map, cliente_id)
+            if chave:
+                self.cliente_var.set(chave)
+
+        if servico_id:
+            chave = self._chave_por_id(self.servico_map, servico_id)
+            if chave is None:
+                self._carregar_servicos()
+                chave = self._chave_por_id(self.servico_map, servico_id)
+            if chave:
+                self.servico_var.set(chave)
+
+        if prof_id:
+            chave = self._chave_por_id(self.prof_map, prof_id)
+            if chave is None:
+                self._carregar_profissionais()
+                chave = self._chave_por_id(self.prof_map, prof_id)
+            if chave:
+                self.prof_var.set(chave)
+                self._carregar_agendas_disponiveis()
+
+        data_fmt = self._formatar_data(data)
+        chave_agenda = f"{data_fmt} {hora}"
+        if chave_agenda not in self.agenda_map:
+            valores = list(self.agenda_combo["values"])
+            if chave_agenda not in valores:
+                valores.append(chave_agenda)
+                self.agenda_combo["values"] = valores
+            self.agenda_map[chave_agenda] = (data, hora)
+        self.agenda_var.set(chave_agenda)
 
     def _carregar_combos(self):
         self._carregar_clientes()
@@ -150,6 +198,23 @@ class TelaCadastroAgendamento(ttk.Frame):
             return data.strftime("%d/%m/%Y")
         return str(data)
 
+    @staticmethod
+    def _extrair_id(valor):
+        if valor is None:
+            return None
+        texto = str(valor).strip()
+        if not texto:
+            return None
+        parte = texto.split("-", 1)[0].strip()
+        return int(parte) if parte.isdigit() else None
+
+    @staticmethod
+    def _chave_por_id(mapa, alvo_id):
+        for chave, valor in mapa.items():
+            if valor == alvo_id:
+                return chave
+        return None
+
     def _objetos_selecionados(self):
         cliente_id = self.cliente_map.get(self.cliente_var.get().strip())
         servico_id = self.servico_map.get(self.servico_var.get().strip())
@@ -164,7 +229,15 @@ class TelaCadastroAgendamento(ttk.Frame):
     def _salvar(self):
         cliente, servico, profissional = self._objetos_selecionados()
         if not cliente or not servico or not profissional:
-            messagebox.showerror("Validação", "Selecione cliente, serviço e profissional válidos.")
+            faltando = []
+            if not cliente:
+                faltando.append("cliente")
+            if not servico:
+                faltando.append("serviço")
+            if not profissional:
+                faltando.append("profissional")
+            itens = ", ".join(faltando)
+            messagebox.showerror("Validação", f"Selecione {itens} válido(s).")
             return
 
         agenda_sel = self.agenda_var.get().strip()
@@ -174,11 +247,29 @@ class TelaCadastroAgendamento(ttk.Frame):
             return
         data, hora = agenda
 
+        agenda_existe = AgendaDao.consulta_agenda(self.conexao, profissional, data, hora)
+        if agenda_existe == -1:
+            messagebox.showerror(
+                "Erro",
+                "A agenda selecionada não existe mais. Clique em 'Atualizar combos' e tente novamente.",
+            )
+            return
+
+        if AgendamentoDao.existe_agendamento(self.conexao, profissional.get_id(), data, hora):
+            messagebox.showerror(
+                "Conflito",
+                "Este horário já foi agendado para este profissional. Atualize os combos e escolha outro horário.",
+            )
+            return
+
         agenda = Agenda(profissional, data, hora)
         agd = Agendamento(0, cliente, servico, agenda)
         novo_id = AgendamentoDao.inserir_agendamentos(self.conexao, agd)
         if novo_id == -1:
-            messagebox.showerror("Erro", "Falha ao cadastrar agendamento.")
+            messagebox.showerror(
+                "Erro",
+                "Não foi possível salvar o agendamento. Verifique os dados e tente novamente.",
+            )
             return
 
         messagebox.showinfo("Sucesso", f"Agendamento cadastrado. ID: {novo_id}")

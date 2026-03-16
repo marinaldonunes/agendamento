@@ -43,25 +43,65 @@ class TelaCadastroAgenda(ttk.Frame):
         ttk.Button(botoes, text="Atualizar lista", command=self._carregar_profissionais).grid(row=0, column=1)
 
     def _montar_lista(self):
-        cols = ("data", "hora")
+        cols = ("profissional", "data", "hora")
         self.tree = ttk.Treeview(self, columns=cols, show="headings", height=12)
+        self.tree.heading("profissional", text="Profissional")
         self.tree.heading("data", text="Data")
         self.tree.heading("hora", text="Hora")
+        self.tree.column("profissional", width=220, anchor="w")
+        self.tree.column("data", width=110, anchor="center")
+        self.tree.column("hora", width=80, anchor="center")
         self.tree.grid(row=4, column=0, columnspan=2, sticky="nsew")
         self.rowconfigure(4, weight=1)
+        self.tree.bind("<Double-1>", self._on_tree_double_click)
+
+    def _on_tree_double_click(self, _event):
+        selecionado = self.tree.selection()
+        if not selecionado:
+            return
+        valores = self.tree.item(selecionado[0], "values")
+        if not valores:
+            return
+        if len(valores) == 3:
+            _, data, hora = valores
+        else:
+            data, hora = valores
+        self.data_var.set(self._formatar_data(data))
+        self.hora_var.set(str(hora))
+
+    @staticmethod
+    def _formatar_data(data):
+        if hasattr(data, "strftime"):
+            return data.strftime("%d/%m/%Y")
+        try:
+            return dt.datetime.strptime(str(data), "%Y-%m-%d").strftime("%d/%m/%Y")
+        except (ValueError, TypeError):
+            try:
+                return dt.datetime.strptime(str(data), "%d/%m/%Y").strftime("%d/%m/%Y")
+            except (ValueError, TypeError):
+                return str(data)
 
     def _carregar_profissionais(self):
         self.prof_map.clear()
-        valores = []
+        valores = ["Todos"]
+        atual = self.prof_var.get().strip()
         for reg in ProfissionalDao.consulta_profissionais(self.conexao):
             chave = f"{reg[0]} - {reg[1]} {reg[2]}"
             self.prof_map[chave] = reg[0]
             valores.append(chave)
         self.prof_combo["values"] = valores
-        self.prof_var.set("")
+        if atual and (atual in self.prof_map or atual == "Todos"):
+            self.prof_var.set(atual)
+        elif valores:
+            self.prof_var.set("Todos")
+        else:
+            self.prof_var.set("")
+        self._carregar_agendas_do_profissional()
 
     def _profissional_selecionado(self):
         chave = self.prof_var.get().strip()
+        if chave == "Todos":
+            return None
         if not chave or chave not in self.prof_map:
             return None
         return ProfissionalDao.consulta_profissional_id(self.conexao, self.prof_map[chave])
@@ -93,20 +133,31 @@ class TelaCadastroAgenda(ttk.Frame):
         messagebox.showinfo("Sucesso", "Horário de agenda cadastrado.")
         self.data_var.set("")
         self.hora_var.set("")
-        self.prof_var.set("")
         self._carregar_agendas_do_profissional()
 
     def _carregar_agendas_do_profissional(self):
         for item in self.tree.get_children():
             self.tree.delete(item)
+        chave = self.prof_var.get().strip()
+        if chave == "Todos":
+            registros = AgendaDao.consulta_agendas(self.conexao)
+            if registros == -1:
+                return
+            for prof_id, data, hora in registros:
+                prof = ProfissionalDao.consulta_profissional_id(self.conexao, prof_id)
+                nome = f"{prof_id} - {prof.get_nome()} {prof.get_sobrenome()}" if prof else str(prof_id)
+                self.tree.insert("", tk.END, values=(nome, data, hora))
+            return
+
         prof = self._profissional_selecionado()
         if not prof:
             return
         registros = AgendaDao.consulta_agendas_prof(self.conexao, prof.get_id())
         if registros == -1:
             return
+        nome = f"{prof.get_id()} - {prof.get_nome()} {prof.get_sobrenome()}"
         for data, hora in registros:
-            self.tree.insert("", tk.END, values=(data, hora))
+            self.tree.insert("", tk.END, values=(nome, data, hora))
 
 
 def main():

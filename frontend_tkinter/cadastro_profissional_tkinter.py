@@ -15,6 +15,7 @@ class TelaCadastroProfissional(ttk.Frame):
         super().__init__(master, padding=12)
         self.conexao = conexao
         self.columnconfigure(1, weight=1)
+        self.columnconfigure(2, weight=0)
         self._montar_form()
         self._montar_lista()
         self._carregar_profissionais()
@@ -29,6 +30,9 @@ class TelaCadastroProfissional(ttk.Frame):
         ttk.Label(self, text="Nome").grid(row=1, column=0, sticky="w", pady=3)
         self.nome_var = tk.StringVar()
         ttk.Entry(self, textvariable=self.nome_var).grid(row=1, column=1, sticky="ew", pady=3)
+        ttk.Button(self, text="Pesquisar nome", command=self._pesquisar_nome).grid(
+            row=1, column=2, sticky="w", padx=(8, 0), pady=3
+        )
 
         ttk.Label(self, text="Sobrenome").grid(row=2, column=0, sticky="w", pady=3)
         self.sobrenome_var = tk.StringVar()
@@ -52,14 +56,13 @@ class TelaCadastroProfissional(ttk.Frame):
 
         botoes = ttk.Frame(self)
         botoes.grid(row=7, column=0, columnspan=2, sticky="e", pady=(8, 6))
-        ttk.Button(botoes, text="Pesquisar nome", command=self._pesquisar_nome).grid(row=0, column=0, padx=(0, 8))
-        ttk.Button(botoes, text="Atualizar", command=self._atualizar).grid(row=0, column=1, padx=(0, 8))
-        ttk.Button(botoes, text="Excluir", command=self._excluir).grid(row=0, column=2, padx=(0, 8))
-        ttk.Button(botoes, text="Limpar", command=self._limpar).grid(row=0, column=3, padx=(0, 8))
-        ttk.Button(botoes, text="Salvar", command=self._salvar).grid(row=0, column=4)
+        ttk.Button(botoes, text="Atualizar", command=self._atualizar).grid(row=0, column=0, padx=(0, 8))
+        ttk.Button(botoes, text="Excluir", command=self._excluir).grid(row=0, column=1, padx=(0, 8))
+        ttk.Button(botoes, text="Limpar", command=self._limpar).grid(row=0, column=2, padx=(0, 8))
+        ttk.Button(botoes, text="Salvar", command=self._salvar).grid(row=0, column=3)
 
     def _montar_lista(self):
-        cols = ("id", "nome", "sobrenome", "registro", "uf", "conselho")
+        cols = ("id", "nome", "sobrenome", "registro", "uf", "conselho", "contatos")
         self.tree = ttk.Treeview(self, columns=cols, show="headings", height=8)
         for col, texto in (
             ("id", "ID"),
@@ -68,10 +71,33 @@ class TelaCadastroProfissional(ttk.Frame):
             ("registro", "Registro"),
             ("uf", "UF"),
             ("conselho", "Conselho"),
+            ("contatos", "Contatos"),
         ):
             self.tree.heading(col, text=texto)
+        self.tree.column("id", width=60, anchor="center")
+        self.tree.column("nome", width=140, anchor="w")
+        self.tree.column("sobrenome", width=160, anchor="w")
+        self.tree.column("registro", width=90, anchor="center")
+        self.tree.column("uf", width=50, anchor="center")
+        self.tree.column("conselho", width=90, anchor="center")
+        self.tree.column("contatos", width=220, anchor="w")
         self.tree.grid(row=8, column=0, columnspan=2, sticky="nsew")
         self.rowconfigure(8, weight=1)
+        self.tree.bind("<Double-1>", self._on_tree_double_click)
+
+    def _on_tree_double_click(self, _event):
+        selecionado = self.tree.selection()
+        if not selecionado:
+            return
+        valores = self.tree.item(selecionado[0], "values")
+        if not valores:
+            return
+        prof_id = valores[0]
+        if not str(prof_id).isdigit():
+            return
+        prof = ProfissionalDao.consulta_profissional_id(self.conexao, int(prof_id))
+        if prof:
+            self._preencher_form(prof)
 
     def _limpar(self):
         self.id_var.set("")
@@ -172,6 +198,7 @@ class TelaCadastroProfissional(ttk.Frame):
 
         messagebox.showinfo("Sucesso", "Profissional atualizado com sucesso.")
         self._preencher_form(prof_novo)
+        self._carregar_profissionais()
 
     def _excluir(self):
         id_txt = self.id_var.get().strip()
@@ -195,7 +222,23 @@ class TelaCadastroProfissional(ttk.Frame):
         for item in self.tree.get_children():
             self.tree.delete(item)
         for reg in ProfissionalDao.consulta_profissionais(self.conexao):
-            self.tree.insert("", tk.END, values=reg)
+            prof_id, nome, sobrenome, registro, uf, conselho = reg
+            prof = ProfissionalDao.consulta_profissional_id(self.conexao, prof_id)
+            contatos = ""
+            if prof:
+                contatos = " / ".join(self._formatar_contato(c) for c in prof.get_contatos())
+            self.tree.insert("", tk.END, values=(prof_id, nome, sobrenome, registro, uf, conselho, contatos))
+
+    @staticmethod
+    def _formatar_contato(contato):
+        if not contato:
+            return ""
+        digitos = "".join(ch for ch in str(contato) if ch.isdigit())
+        if len(digitos) == 11:
+            return f"({digitos[:2]}){digitos[2:7]}-{digitos[7:]}"
+        if len(digitos) == 10:
+            return f"({digitos[:2]}){digitos[2:6]}-{digitos[6:]}"
+        return str(contato)
 
 
 def main():
