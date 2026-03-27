@@ -1,14 +1,14 @@
 class Agendamento:
-    __slots__ = ['__id', '__cliente', '__servico', '__agenda']
+    __slots__ = ['__id_agendamento', '__cliente', '__servico', '__id_agenda']
 
-    def __init__(self, p_id=False, p_cliente=False, p_servico=False, p_agenda=False):
-        self.__id = p_id
+    def __init__(self, p_id_agendamento=False, p_cliente=False, p_servico=False, p_id_agenda=False):
+        self.__id_agendamento = p_id_agendamento
         self.__cliente = p_cliente
         self.__servico = p_servico
-        self.__agenda = p_agenda
+        self.__id_agenda = p_id_agenda
 
-    def get_id(self):
-        return self.__id
+    def get_id_agendamento(self):
+        return self.p_id_agendamento
 
     def get_cliente(self):
         return self.__cliente
@@ -16,11 +16,11 @@ class Agendamento:
     def get_servico(self):
         return self.__servico
 
-    def get_agenda(self):
-        return self.__agenda
+    def get_id_agenda(self):
+        return self.p_id_agenda
 
-    def set_id(self, valor):
-        self.__id = valor
+    def set_id_agendamento(self, valor):
+        self.p_id_agendamento = valor
 
     def set_cliente(self, valor):
         self.__cliente = valor
@@ -28,8 +28,8 @@ class Agendamento:
     def set_servico(self, valor):
         self.__servico = valor
 
-    def set_agenda(self, valor):
-        self.__agenda = valor
+    def set_id_agenda(self, valor):
+        self.p_id_agenda = valor
 
     def __str__(self):
         return(f"Agendamento ==> id: {self.get_id()} \n Cliente: {self.get_cliente().get_nome()}  \n Serviço:  {self.get_servico().get_nome_servico()} \n Profissional: {self.get_agenda().get_profissional().get_nome()}  \n Dia:Hora:{self.get_agenda().get_dia()}:{self.get_agenda().get_hora()}")        

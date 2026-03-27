@@ -19,70 +19,31 @@ class AgendamentoDao:
     def criar_tabela_agendamento(conexao):
 
         comando = "create table  if not exists agendamentos (" \
-                  "id integer primary key autoincrement, " \
+                  "id_agendamento integer primary key autoincrement not null, " \
                   "id_cliente number not null, " \
-                  "id_profissional number not null, " \
                   "id_servico number not null, " \
-                  "data date not null, " \
-                  "hora varchar(4) not null, " \
+                  "id_agenda number not null, " \
                   "foreign key(id_cliente) references clientes(id), " \
-                  "foreign key(id_profissional, data, hora) references agendas(id_profissional, data, horario), " \
-                  "foreign key(id_servico) references servicos(id), unique (id_profissional, data, hora))"
+                  "foreign key(id_agenda) references agendas(id_agenda), " \
+                  "foreign key(id_servico) references servicos(id))"
 
         try:
             cursor = conexao.cursor()
             cursor.execute(comando)
-            AgendamentoDao._garantir_fk_agendas(conexao)
         except sql.DatabaseError as erro:
             print(erro)
 
     @staticmethod
-    def _garantir_fk_agendas(conexao):
-        try:
-            cursor = conexao.cursor()
-            fks = cursor.execute("PRAGMA foreign_key_list(agendamentos)").fetchall()
-            if not fks:
-                return
-            fks_agendas = [fk for fk in fks if fk[2] == "agendas"]
-            fk_agenda_errado = any(fk[2] == "agenda" for fk in fks)
-            fk_colunas_erradas = any(fk[4] == "hora" for fk in fks_agendas)
-            if fk_agenda_errado or fk_colunas_erradas:
-                cursor.execute("ALTER TABLE agendamentos RENAME TO agendamentos_old")
-                cursor.execute(
-                    "create table agendamentos ("
-                    "id integer primary key autoincrement, "
-                    "id_cliente number not null, "
-                    "id_profissional number not null, "
-                    "id_servico number not null, "
-                    "data date not null, "
-                    "hora varchar(4) not null, "
-                    "foreign key(id_cliente) references clientes(id), "
-                    "foreign key(id_profissional, data, hora) references agendas(id_profissional, data, horario), "
-                    "foreign key(id_servico) references servicos(id), "
-                    "unique (id_profissional, data, hora)"
-                    ")"
-                )
-                cursor.execute(
-                    "insert into agendamentos (id, id_cliente, id_profissional, id_servico, data, hora) "
-                    "select id, id_cliente, id_profissional, id_servico, data, hora from agendamentos_old"
-                )
-                cursor.execute("drop table agendamentos_old")
-                conexao.commit()
-        except sql.DatabaseError as erro:
-            print("Erro ao ajustar FK de agendamentos - {}".format(erro))
-
-    @staticmethod
     def inserir_agendamentos(conexao, p_agendamento):
 
-        comando_inserir = "insert into agendamentos(id_cliente, id_servico, id_profissional, data, hora) " \
-                          "values (?,?,?,?,?)"
+        comando_inserir = "insert into agendamentos(id_cliente, id_servico, id_agenda) " \
+                          "values (?,?,?)"
 
         try:
             cursor = conexao.cursor()
             data_sql = p_agendamento.get_agenda().get_dia().strftime('%Y-%m-%d') if hasattr(p_agendamento.get_agenda().get_dia(), 'strftime') else p_agendamento.get_agenda().get_dia()
             cursor.execute(comando_inserir, (p_agendamento.get_cliente().get_id(), p_agendamento.get_servico().get_id(),
-                           p_agendamento.get_agenda().get_profissional().get_id(), data_sql,
-                           p_agendamento.get_agenda().get_hora()))
+                           p_agendamento.get_agenda().get_id_agenda()))
             
             ultimo_id = cursor.lastrowid            
 
@@ -94,7 +55,7 @@ class AgendamentoDao:
 
     @staticmethod
     def existe_agendamento(conexao, prof_id, data, hora):
-        comando = "select 1 from agendamentos where id_profissional = ? and data = ? and hora = ?"
+        comando = "select 1 from agendamentos a, agendas b where b.id_profissional = ? and b.data = ? and b.hora = ? and a.id_agenda = b.id_agenda"
         try:
             cursor = conexao.cursor()
             data_sql = data.strftime('%Y-%m-%d') if hasattr(data, 'strftime') else data
@@ -108,8 +69,8 @@ class AgendamentoDao:
     @staticmethod
     def consultar_agendamento(conexao, p_id):
 
-        comando_consulta_agd = "select id, id_cliente, id_servico, id_profissional, data, hora " \
-                               "from agendamentos where id = ? "
+        comando_consulta_agd = "select a.id_agendamento, a.id_cliente, a.id_servico, b.id_profissional, b.data, b.hora " \
+                               "from agendamentos a, agendas b where a.id_agendamento = ? and a.id_agenda = b.id_agenda "
         try:
             cursor = conexao.cursor()
             cursor.execute(comando_consulta_agd, (p_id,))
@@ -132,8 +93,9 @@ class AgendamentoDao:
     @staticmethod
     def consultar_agendamentos_cliente(conexao, p_id):
 
-        comando_consulta_agd = "select id, id_cliente, id_servico, id_profissional, data, hora " \
-                               "from agendamentos where id_cliente = ? "
+        comando_consulta_agd = "select a.id_agendamento, a.id_cliente, a.id_servico, b.id_profissional, b.data, b.hora " \
+                               "from agendamentos a, agendas b where a.id_cliente = ? and a.id_agenda = b.id_agenda "
+
         try:
             cursor = conexao.cursor()
             r_agendamentos = cursor.execute(comando_consulta_agd, (p_id,))
@@ -146,8 +108,8 @@ class AgendamentoDao:
     @staticmethod
     def consultar_agendamentos_profissional(conexao, p_id):
 
-        comando_consulta_agd = "select id, id_cliente, id_servico, id_profissional, data, hora " \
-                               "from agendamentos where id_profissional = ? "
+        comando_consulta_agd = "select a.id_agendamento, a.id_cliente, a.id_servico, b.id_profissional, b.data, b.hora " \
+                               "from agendamentos a, agendas b where b.id_profissional = ? and a.id_agenda = b.id_agenda "
         try:
             cursor = conexao.cursor()
             r_agendamentos = cursor.execute(comando_consulta_agd, (p_id,))
@@ -160,8 +122,8 @@ class AgendamentoDao:
     @staticmethod
     def consultar_agendamentos_servicos(conexao, p_id):
 
-        comando_consulta_agd = "select id, id_cliente, id_servico, id_profissional, data, hora " \
-                               "from agendamentos where id_servico = ? "
+        comando_consulta_agd = "select a.id_agendamento, a.id_cliente, a.id_servico, b.id_profissional, b.data, b.hora " \
+                               "from agendamentos a, agendas b where a.id_servico = ? and a.id_agenda = b.id_agenda "
         try:
             cursor = conexao.cursor()
             r_agendamentos = cursor.execute(comando_consulta_agd, (p_id,))
@@ -174,8 +136,8 @@ class AgendamentoDao:
     @staticmethod
     def consultar_agendamentos_data(conexao, p_data):
 
-        comando_consulta_agd = "select id, id_cliente, id_servico, id_profissional, data, hora " \
-                               "from agendamentos where data = ? "
+        comando_consulta_agd = "select a.id_agendamento, a.id_cliente, a.id_servico, b.id_profissional, b.data, b.hora " \
+                               "from agendamentos a, agendas b where b.data = ? and a.id_agenda = b.id_agenda "
         try:
             cursor = conexao.cursor()
             data_sql = p_data.strftime('%Y-%m-%d') if hasattr(p_data, 'strftime') else p_data
@@ -189,8 +151,9 @@ class AgendamentoDao:
     @staticmethod
     def consultar_agendamentos_data_hora(conexao, p_data, p_hora):
 
-        comando_consulta_agd = "select id, id_cliente, id_servico, id_profissional, data, hora " \
-                               "from agendamentos where data = ? and hora = ? "
+        comando_consulta_agd = "select a.id_agendamento, a.id_cliente, a.id_servico, b.id_profissional, b.data, b.hora " \
+                               "from agendamentos a, agendas b where b.data = ?  and b.hora=? and a.id_agenda = b.id_agenda "
+        
         try:
             cursor = conexao.cursor()
             data_sql = p_data.strftime('%Y-%m-%d') if hasattr(p_data, 'strftime') else p_data
@@ -205,7 +168,7 @@ class AgendamentoDao:
     @staticmethod
     def excluir_agendamento(conexao, p_agd):
 
-        comando_excluir = "delete from agendamentos where id = ?"
+        comando_excluir = "delete from agendamentos where id_agendamento = ?"
 
         try:
             cursor = conexao.cursor()
@@ -282,9 +245,9 @@ if __name__ == '__main__':
     id = ClienteDao.insere_cliente(conexao, cli2)
     cli2.set_id(id)    
 
-    marcacao1 = Agendamento(0, cli1, serv1, agd1)
-    marcacao2 = Agendamento(0, cli2, serv2, agd2)
-    marcacao3 = Agendamento(0, cli2, serv3, agd3)
+    marcacao1 = Agendamento(0, cli1, serv1, agd1.get_id())
+    marcacao2 = Agendamento(0, cli2, serv2, agd2.get_id())
+    marcacao3 = Agendamento(0, cli2, serv3, agd3.get_id())
 
     idAgd = AgendamentoDao.inserir_agendamentos(conexao,marcacao1)
     marcacao1.set_id(idAgd)

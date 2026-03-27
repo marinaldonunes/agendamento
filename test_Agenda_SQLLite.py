@@ -41,7 +41,7 @@ class TesteAgendaSQLLite(unittest.TestCase):
         prof_id = ProfissionalDao.insere_profissional(self.conexao, prof)
         prof.set_id(prof_id)
 
-        agd = Agenda(prof, dt.datetime.strptime('20/05/2025', "%d/%m/%Y"), '0800')      
+        agd = Agenda(prof, dt.datetime.strptime('20/05/2025', "%d/%m/%Y"), '0800', )      
 
         self.assertEqual(AgendaDao.inserir_agenda(self.conexao, agd), 1)   
           
@@ -59,21 +59,40 @@ class TesteAgendaSQLLite(unittest.TestCase):
         self.assertEqual(AgendaDao.excluir_agenda(self.conexao, agd), 1)               
 
 
-    def test_AtualizarAgenda(self):
+    def test_AtualizarDadosAgenda(self):
 
-        #Criação de um profissional para agedan
+        #Criação de um profissional para agenda
         prof = Profissional('Fernanda', 'Oliveira', 2222,  'PE',  'CRP')
         prof.set_contatos(['fe@hotmail.br', '888888888'])
         prod_id = ProfissionalDao.insere_profissional(self.conexao, prof)
         profissional_bd = ProfissionalDao.consulta_profissional_id(self.conexao, prod_id)
-        agd = Agenda(profissional_bd, dt.datetime.strptime('20/05/2025', "%d/%m/%Y"), '0800')  
+        agd = Agenda(profissional_bd, dt.datetime.strptime('20/05/2025', "%d/%m/%Y"), '0800', p_bloqueada=0)  
         AgendaDao.inserir_agenda(self.conexao, agd)               
     
         self.assertEqual(AgendaDao.atualizar_agenda(self.conexao, 
                                                        profissional_bd,  
                                                        dt.datetime.strptime('20/05/2025', "%d/%m/%Y"),'0800',  
-                                                       dt.datetime.strptime('20/05/2025', "%d/%m/%Y"),'1000'
+                                                       dt.datetime.strptime('20/05/2025', "%d/%m/%Y"),'1000',
+                                                       p_novo_status=1
                                                        ), 1)   
+
+    def test_AtualizarStatusAgenda(self):
+
+        #Criação de um profissional para agenda
+        prof = Profissional('Fernanda', 'Oliveira', 2222,  'PE',  'CRP')
+        prof.set_contatos(['fe@hotmail.br', '888888888'])
+        prod_id = ProfissionalDao.insere_profissional(self.conexao, prof)
+        profissional_bd = ProfissionalDao.consulta_profissional_id(self.conexao, prod_id)
+        agd = Agenda(profissional_bd, dt.datetime.strptime('20/05/2025', "%d/%m/%Y"), '0800', p_bloqueada=1)  
+        AgendaDao.inserir_agenda(self.conexao, agd)               
+            
+        self.assertEqual(AgendaDao.atualizar_agenda(self.conexao, 
+                                                       profissional_bd,  
+                                                       dt.datetime.strptime('20/05/2025', "%d/%m/%Y"),'0800',  
+                                                       dt.datetime.strptime('20/05/2025', "%d/%m/%Y"),'1000',
+                                                       p_novo_status=0
+                                                       ), 1) 
+
 
 
     def test_consultas_agendas_prof(self):

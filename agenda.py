@@ -1,13 +1,15 @@
-""" Classe que representa os itens que podem ser agendados"""
+""" Classe que representa os horarios de profissionais que podem ser agendados"""
 
 
 class Agenda:
-    __slot__ = ['__profissional', '__dia', '__hora']
+    __slot__ = ['__profissional', '__dia', '__hora', '__id', '__bloqueada']
 
-    def __init__(self, p_profissional=False, p_dia=False, p_hora=False):
+    def __init__(self, p_profissional=False, p_dia=False, p_hora=False, p_bloqueada=0, p_id=0):
         self.__profissional = p_profissional
         self.__dia = p_dia
         self.__hora = p_hora
+        self.__bloqueada = p_bloqueada
+        self.__id = p_id
 
     def get_dia(self):
         return self.__dia
@@ -17,6 +19,12 @@ class Agenda:
 
     def get_profissional(self):
         return self.__profissional
+    
+    def get_id(self):
+        return self.__id
+    
+    def get_bloqueada(self):
+        return self.__bloqueada
 
     def set_dia(self, p_dia):
         self.__dia = p_dia
@@ -26,6 +34,12 @@ class Agenda:
 
     def set_profissional(self, valor):
         self.__profissional = valor
+
+    def set_id(self, p_id):
+        self.__id = p_id
+
+    def set_bloqueada(self, valor):
+        self.__bloqueada = valor
 
     def __str__(self):
         return(f"Agenda ==> id: {self.get_id()} - Profissional: {self.get_profissional}/ Dia/Hora:{self.get_dia}:{self.get_hora}")

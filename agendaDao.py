@@ -13,8 +13,10 @@ class AgendaDao:
         comando = 'create table  if not exists agendas (' \
                   'id_profissional number not null,' \
                   'data date not null, ' \
-                  'horario varchar(4) not null, ' \
-                  'primary key(id_profissional, data, horario), '\
+                  'horario varchar(4) not null, '\
+                  'id_agenda integer primary key autoincrement not null,' \
+                  'bloqueada boolean not null,' \
+                  'unique (id_profissional, data, horario), '\
                   'foreign key(id_profissional) references profissionais(id) ' \
                   ')'
 
@@ -28,15 +30,16 @@ class AgendaDao:
     @staticmethod
     def inserir_agenda(conexao, p_agenda):
 
-        comando_inserir = 'insert into agendas (id_profissional, data, horario) values (?,?,?)'
+        comando_inserir = 'insert into agendas (id_profissional, data, horario, bloqueada) values (?,?,?,?)'
 
         try:
             cursor = conexao.cursor()
             data_sql = p_agenda.get_dia().strftime('%Y-%m-%d') if hasattr(p_agenda.get_dia(), 'strftime') else p_agenda.get_dia()
             cursor.execute(comando_inserir, (p_agenda.get_profissional().get_id(), data_sql,
-                                             p_agenda.get_hora()))
+                                             p_agenda.get_hora(), p_agenda.get_bloqueada()))
+            ultimo_id = cursor.lastrowid            
             conexao.commit()
-            return 1
+            return ultimo_id
 
         except sql.DatabaseError as erro:
             print("Erro inserir agenda do profissional {} no dia/hora: {} - {} - {}".
@@ -46,7 +49,7 @@ class AgendaDao:
     @staticmethod
     def consulta_agendas_prof(conexao, id_profissional):
 
-        comando = 'select id_profissional, data, horario from agendas where id_profissional = ?'
+        comando = 'select id_agenda, id_profissional, data, horario, bloqueada from agendas where id_profissional = ?'
 
         try:
         
@@ -64,7 +67,7 @@ class AgendaDao:
     @staticmethod
     def consulta_agendas(conexao):
 
-        comando = 'select id_profissional, data, horario from agendas order by id_profissional, data, horario'
+        comando = 'select id_agenda, id_profissional, data, horario, bloqueada from agendas order by id_profissional, data, horario'
 
         try:
             registros = []
@@ -80,7 +83,7 @@ class AgendaDao:
     @staticmethod
     def consulta_agenda(conexao, p_profissional, p_dia, p_hora):
 
-        comando = 'select id_profissional, data, horario from agendas where id_profissional = ? and data = ? and horario = ?'     
+        comando = 'select id_agenda, id_profissional, data, horario, bloqueada from agendas where id_profissional = ? and data = ? and horario = ?'     
 
         try:
             cursor = conexao.cursor()            
@@ -125,15 +128,15 @@ class AgendaDao:
             
 
     @staticmethod
-    def atualizar_agenda(conexao, p_prof, p_dia_atual, p_hora_atual, p_dia_nova, p_hora_nova):            
+    def atualizar_agenda(conexao, p_prof, p_dia_atual, p_hora_atual, p_dia_nova, p_hora_nova, p_novo_status=0):            
 
         try:
             cursor = conexao.cursor()
             agenda_existe = AgendaDao.consulta_agenda(conexao, p_prof, p_dia_atual, p_hora_atual)
             if agenda_existe:
-                agenda = Agenda(p_prof, p_dia_atual, p_hora_atual )
+                agenda = Agenda(p_prof, p_dia_atual, p_hora_atual, p_bloqueada=1)
                 AgendaDao.excluir_agenda(conexao, agenda)
-                agd_nova = Agenda(p_prof, p_dia_nova, p_hora_nova)    
+                agd_nova = Agenda(p_prof, p_dia_nova, p_hora_nova, p_bloqueada=p_novo_status )    
                 AgendaDao.inserir_agenda(conexao, agd_nova)   
                 return 1         
 
