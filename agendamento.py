@@ -8,7 +8,7 @@ class Agendamento:
         self.__id_agenda = p_id_agenda
 
     def get_id_agendamento(self):
-        return self.p_id_agendamento
+        return self.__id_agendamento
 
     def get_cliente(self):
         return self.__cliente
@@ -17,10 +17,10 @@ class Agendamento:
         return self.__servico
 
     def get_id_agenda(self):
-        return self.p_id_agenda
+        return self.__id_agenda
 
     def set_id_agendamento(self, valor):
-        self.p_id_agendamento = valor
+        self.__id_agendamento = valor
 
     def set_cliente(self, valor):
         self.__cliente = valor
@@ -29,7 +29,7 @@ class Agendamento:
         self.__servico = valor
 
     def set_id_agenda(self, valor):
-        self.p_id_agenda = valor
+        self.__id_agenda = valor
 
     def __str__(self):
-        return(f"Agendamento ==> id: {self.get_id()} \n Cliente: {self.get_cliente().get_nome()}  \n Serviço:  {self.get_servico().get_nome_servico()} \n Profissional: {self.get_agenda().get_profissional().get_nome()}  \n Dia:Hora:{self.get_agenda().get_dia()}:{self.get_agenda().get_hora()}")        
+        return(f"Agendamento ==> id: {self.get_id_agendamento()} \n Cliente: {self.get_cliente().get_nome()}  \n Serviço:  {self.get_servico().get_nome_servico()} \n Agenda ID: {self.get_id_agenda()}")        

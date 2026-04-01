@@ -56,7 +56,7 @@ class AgendaDao:
             horarios = list()
             cursor = conexao.cursor()
             for reg in cursor.execute(comando, (id_profissional,)):               
-                horarios.append((reg[1],reg[2]))
+                horarios.append((reg[0], reg[1], reg[2], reg[3], reg[4]))
 
             return horarios
 
@@ -73,7 +73,7 @@ class AgendaDao:
             registros = []
             cursor = conexao.cursor()
             for reg in cursor.execute(comando):
-                registros.append((reg[0], reg[1], reg[2]))
+                registros.append((reg[0], reg[1], reg[2], reg[3], reg[4]))
             return registros
         except sql.DatabaseError as erro:
             print("Erro consultar todas as agendas - {}".format(erro))
@@ -94,9 +94,12 @@ class AgendaDao:
             result = cursor.fetchone()  
             if result:
                 agenda = Agenda()
+                agenda.set_id(result[0])
                 agenda.set_profissional(p_profissional)
-                agenda.set_dia = p_dia
-                agenda.set_hora = p_hora
+                agenda.set_dia(p_dia)
+                agenda.set_hora(p_hora)
+                agenda.set_bloqueada(result[4])   
+
                 return agenda
             else:
                 return -1
@@ -104,6 +107,30 @@ class AgendaDao:
             print("Erro consultar agenda do profissional: {} - Data/hora: {}/{} - {}".format(prof_id, data_sql, p_hora, erro))            
         return -1
 
+
+    @staticmethod
+    def consulta_agenda_id(conexao, id_agenda):
+
+        comando = 'select id_agenda, id_profissional, data, horario, bloqueada from agendas where id_agenda = ?'     
+
+        try:
+            cursor = conexao.cursor()            
+            parametros = (id_agenda,)       
+            cursor.execute(comando, parametros)  
+            result = cursor.fetchone()  
+            if result:
+                agenda = Agenda()
+                agenda.set_id(id_agenda)
+                agenda.set_profissional(result[1])
+                agenda.set_dia(result[2])
+                agenda.set_hora(result[3])
+                agenda.set_bloqueada(result[4])                
+                return agenda
+            else:
+                return -1
+        except sql.DatabaseError as erro:
+            print("Erro consultar agenda id: {} - {}".format(id_agenda, erro))            
+        return -1
 
 
     @staticmethod

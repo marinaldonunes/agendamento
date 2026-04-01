@@ -41,9 +41,9 @@ class AgendamentoDao:
 
         try:
             cursor = conexao.cursor()
-            data_sql = p_agendamento.get_agenda().get_dia().strftime('%Y-%m-%d') if hasattr(p_agendamento.get_agenda().get_dia(), 'strftime') else p_agendamento.get_agenda().get_dia()
+
             cursor.execute(comando_inserir, (p_agendamento.get_cliente().get_id(), p_agendamento.get_servico().get_id(),
-                           p_agendamento.get_agenda().get_id_agenda()))
+                           p_agendamento.get_id_agenda()))
             
             ultimo_id = cursor.lastrowid            
 
@@ -59,7 +59,9 @@ class AgendamentoDao:
         try:
             cursor = conexao.cursor()
             data_sql = data.strftime('%Y-%m-%d') if hasattr(data, 'strftime') else data
-            cursor.execute(comando, (prof_id, data_sql, hora))
+            parametros = (prof_id, data_sql, hora)             
+            cursor.execute(comando, parametros)
+
             return cursor.fetchone() is not None
         except sql.DatabaseError as erro:
             print("Erro ao verificar agendamento. {} - {}".format((prof_id, data, hora), erro))
@@ -67,81 +69,93 @@ class AgendamentoDao:
 
 
     @staticmethod
-    def consultar_agendamento(conexao, p_id):
+    def consultar_agendamento(conexao, p_id_agendamento):
 
-        comando_consulta_agd = "select a.id_agendamento, a.id_cliente, a.id_servico, b.id_profissional, b.data, b.hora " \
+        comando_consulta_agd = "select a.id_agendamento, a.id_cliente, a.id_servico, a.id_agenda, b.id_profissional, b.data, b.horario " \
                                "from agendamentos a, agendas b where a.id_agendamento = ? and a.id_agenda = b.id_agenda "
         try:
             cursor = conexao.cursor()
-            cursor.execute(comando_consulta_agd, (p_id,))
+            parametros = (p_id_agendamento,)                                  
+            cursor.execute(comando_consulta_agd, parametros)
             result = cursor.fetchone()  
             if result:
 
                 cliente = ClienteDao.consulta_cliente_id(conexao, result[1])
                 servico = ServicoDao.consultar_servico_id(conexao,result[2])                
-                profissional = ProfissionalDao.consulta_profissional_id(conexao,result[3])
-                agenda = Agenda(profissional, result[4], result[5])
-
-                r_agendamento = Agendamento(result[0],cliente, servico, agenda)
+                r_agendamento = Agendamento(result[0], cliente, servico, result[3])
 
                 return r_agendamento
         except sql.DatabaseError as erro:
-            print("Erro ao recuperar agendamento id:. {} - {}".format(p_id, erro))
+            print("Erro ao recuperar agendamento id:. {} - {}".format(p_id_agendamento, erro))
         return -1
 
 
     @staticmethod
-    def consultar_agendamentos_cliente(conexao, p_id):
+    def consultar_agendamentos_cliente(conexao, p_id_cliente):
 
-        comando_consulta_agd = "select a.id_agendamento, a.id_cliente, a.id_servico, b.id_profissional, b.data, b.hora " \
+        comando_consulta_agd = "select a.id_agendamento, a.id_cliente, a.id_servico, b.id_profissional, b.data, b.horario " \
                                "from agendamentos a, agendas b where a.id_cliente = ? and a.id_agenda = b.id_agenda "
 
         try:
+
             cursor = conexao.cursor()
-            r_agendamentos = cursor.execute(comando_consulta_agd, (p_id,))
+            r_agendamentos = list()   
+            parametros = (p_id_cliente,)                      
+            for reg in cursor.execute(comando_consulta_agd, parametros):
+                r_agendamentos.append((reg[0], reg[1], reg[2], reg[3], reg[4]))
             return r_agendamentos
+
         except sql.DatabaseError as erro:
-            print("Erro ao recuperar agendamento id:. {} - {}".format(p_id, erro))
+            print("Erro ao recuperar agendamento id:. {} - {}".format(p_id_cliente, erro))
         return -1
 
 
     @staticmethod
-    def consultar_agendamentos_profissional(conexao, p_id):
+    def consultar_agendamentos_profissional(conexao, p_id_profissional):
 
-        comando_consulta_agd = "select a.id_agendamento, a.id_cliente, a.id_servico, b.id_profissional, b.data, b.hora " \
+        comando_consulta_agd = "select a.id_agendamento, a.id_cliente, a.id_servico, b.id_profissional, b.data, b.horario " \
                                "from agendamentos a, agendas b where b.id_profissional = ? and a.id_agenda = b.id_agenda "
         try:
             cursor = conexao.cursor()
-            r_agendamentos = cursor.execute(comando_consulta_agd, (p_id,))
+            r_agendamentos = list()     
+            parametros = (p_id_profissional,)                    
+            for reg in cursor.execute(comando_consulta_agd, parametros):
+                r_agendamentos.append((reg[0], reg[1], reg[2], reg[3], reg[4]))
             return r_agendamentos
         except sql.DatabaseError as erro:
-            print("Erro ao recuperar agendamento id:. {} - {}".format(p_id, erro))
+            print("Erro ao recuperar agendamento id:. {} - {}".format(p_id_profissional, erro))
         return -1
 
 
     @staticmethod
-    def consultar_agendamentos_servicos(conexao, p_id):
+    def consultar_agendamentos_servicos(conexao, p_id_servico):
 
-        comando_consulta_agd = "select a.id_agendamento, a.id_cliente, a.id_servico, b.id_profissional, b.data, b.hora " \
+        comando_consulta_agd = "select a.id_agendamento, a.id_cliente, a.id_servico, b.id_profissional, b.data, b.horario " \
                                "from agendamentos a, agendas b where a.id_servico = ? and a.id_agenda = b.id_agenda "
         try:
             cursor = conexao.cursor()
-            r_agendamentos = cursor.execute(comando_consulta_agd, (p_id,))
+            r_agendamentos = list()     
+            parametros = (p_id_servico,)                    
+            for reg in cursor.execute(comando_consulta_agd, parametros):
+                r_agendamentos.append((reg[0], reg[1], reg[2], reg[3], reg[4]))
             return r_agendamentos
         except sql.DatabaseError as erro:
-            print("Erro ao recuperar agendamento id:. {} - {}".format(p_id, erro))
+            print("Erro ao recuperar agendamento id:. {} - {}".format(p_id_servico, erro))
         return -1
 
 
     @staticmethod
     def consultar_agendamentos_data(conexao, p_data):
 
-        comando_consulta_agd = "select a.id_agendamento, a.id_cliente, a.id_servico, b.id_profissional, b.data, b.hora " \
+        comando_consulta_agd = "select a.id_agendamento, a.id_cliente, a.id_servico, b.id_profissional, b.data, b.horario " \
                                "from agendamentos a, agendas b where b.data = ? and a.id_agenda = b.id_agenda "
         try:
-            cursor = conexao.cursor()
             data_sql = p_data.strftime('%Y-%m-%d') if hasattr(p_data, 'strftime') else p_data
-            r_agendamentos = cursor.execute(comando_consulta_agd, (data_sql,))
+            cursor = conexao.cursor()
+            r_agendamentos = list()     
+            parametros = (data_sql,)                    
+            for reg in cursor.execute(comando_consulta_agd, parametros) :
+                r_agendamentos.append((reg[0], reg[1], reg[2], reg[3], reg[4]))
             return r_agendamentos
         except (sql.DatabaseError, TypeError, ValueError) as erro:
             print("Erro ao recuperar agendamento id:. {} - {}".format(p_data, erro))
@@ -151,15 +165,20 @@ class AgendamentoDao:
     @staticmethod
     def consultar_agendamentos_data_hora(conexao, p_data, p_hora):
 
-        comando_consulta_agd = "select a.id_agendamento, a.id_cliente, a.id_servico, b.id_profissional, b.data, b.hora " \
-                               "from agendamentos a, agendas b where b.data = ?  and b.hora=? and a.id_agenda = b.id_agenda "
+        comando_consulta_agd = "select a.id_agendamento, a.id_cliente, a.id_servico, b.id_profissional, b.data, b.horario " \
+                               "from agendamentos a, agendas b where b.data = ?  and b.horario=? and a.id_agenda = b.id_agenda "
         
         try:
-            cursor = conexao.cursor()
+
             data_sql = p_data.strftime('%Y-%m-%d') if hasattr(p_data, 'strftime') else p_data
-            parametros = (data_sql, p_hora)
-            r_agendamentos = cursor.execute(comando_consulta_agd, parametros)
+
+            cursor = conexao.cursor()
+            r_agendamentos = list()            
+            parametros = (data_sql, p_hora)            
+            for reg in cursor.execute(comando_consulta_agd, parametros) :
+                r_agendamentos.append((reg[0], reg[1], reg[2], reg[3], reg[4]))
             return r_agendamentos
+
         except (sql.DatabaseError, TypeError, ValueError) as erro:
             print("Erro ao recuperar agendamento id:. {} : {} - {}".format(p_data, p_hora, erro))
         return -1
@@ -172,14 +191,12 @@ class AgendamentoDao:
 
         try:
             cursor = conexao.cursor()
-            cursor.execute(comando_excluir, (p_agd.get_id(),))
+            cursor.execute(comando_excluir, (p_agd.get_id_agendamento(),))
             conexao.commit()
             return 1
         except sql.DatabaseError as erro:
             print("Erro ao incluir agendamento. {}".format(erro))
         return -1
-
-
 
 
 
@@ -210,9 +227,9 @@ if __name__ == '__main__':
     agd2 = Agenda(prof2, dt.datetime.strptime('20/07/2025', '%d/%m/%Y'), '1000')          
     agd3 = Agenda(prof2, dt.datetime.strptime('21/07/2025', '%d/%m/%Y'), '1000')              
 
-    AgendaDao.inserir_agenda(conexao, agd1)
-    AgendaDao.inserir_agenda(conexao, agd2)    
-    AgendaDao.inserir_agenda(conexao, agd3)     
+    agd1.set_id(AgendaDao.inserir_agenda(conexao, agd1))
+    agd2.set_id(AgendaDao.inserir_agenda(conexao, agd2))    
+    agd3.set_id(AgendaDao.inserir_agenda(conexao, agd3))     
 
     serv1 = Servico('Massagem', 60)
     serv2 = Servico('Natacao', 50)    
@@ -249,13 +266,16 @@ if __name__ == '__main__':
     marcacao2 = Agendamento(0, cli2, serv2, agd2.get_id())
     marcacao3 = Agendamento(0, cli2, serv3, agd3.get_id())
 
-    idAgd = AgendamentoDao.inserir_agendamentos(conexao,marcacao1)
-    marcacao1.set_id(idAgd)
-    idAgd =AgendamentoDao.inserir_agendamentos(conexao,marcacao2)
-    marcacao2.set_id(idAgd)
-    idAgd =AgendamentoDao.inserir_agendamentos(conexao,marcacao3)        
-    marcacao3.set_id(idAgd)
+    idAgd = AgendamentoDao.inserir_agendamentos(conexao, marcacao1)
+    marcacao1.set_id_agendamento(idAgd)
+    idAgd =AgendamentoDao.inserir_agendamentos(conexao, marcacao2)
+    marcacao2.set_id_agendamento(idAgd)
+    idAgd =AgendamentoDao.inserir_agendamentos(conexao, marcacao3)        
+    marcacao3.set_id_agendamento(idAgd)
+
+    print(AgendamentoDao.consultar_agendamento(conexao, marcacao1.get_id_agendamento()))
+    print(AgendamentoDao.consultar_agendamento(conexao, marcacao2.get_id_agendamento()))
+    print(AgendamentoDao.consultar_agendamento(conexao, marcacao3.get_id_agendamento()))    
+
 
     AgendamentoDao.excluir_agendamento(conexao, marcacao1)
-
-    print(AgendamentoDao.consultar_agendamento(conexao, marcacao3.get_id()))

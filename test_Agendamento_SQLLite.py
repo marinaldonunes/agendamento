@@ -52,19 +52,22 @@ class TestAgendamentoSQLite(unittest.TestCase):
 
     def _inserir_agendamento(self, cliente, servico, profissional, data, hora):
         agenda = Agenda(profissional, data, hora)
-        agendamento = Agendamento(0, cliente, servico, agenda)
+        agenda_id = AgendaDao.inserir_agenda(self.conexao, agenda)
+        agenda.set_id(agenda_id)
+        agendamento = Agendamento(0, cliente, servico, agenda_id)
         novo_id = AgendamentoDao.inserir_agendamentos(self.conexao, agendamento)
-        agendamento.set_id(novo_id)
+        agendamento.set_id_agendamento(novo_id)
         return agendamento
 
     def test_consultar_agendamento_por_id_retorna_objeto(self):
-        result = AgendamentoDao.consultar_agendamento(self.conexao, self.ag1.get_id())
+        result = AgendamentoDao.consultar_agendamento(self.conexao, self.ag1.get_id_agendamento())
 
         self.assertIsInstance(result, Agendamento)
-        self.assertEqual(self.ag1.get_id(), result.get_id())
+        self.assertEqual(self.ag1.get_id_agendamento(), result.get_id_agendamento())
         self.assertEqual(self.cli1.get_id(), result.get_cliente().get_id())
         self.assertEqual(self.serv1.get_id(), result.get_servico().get_id())
-        self.assertEqual(self.prof1.get_id(), result.get_agenda().get_profissional().get_id())
+        agenda_result = AgendaDao.consulta_agenda_id(self.conexao, result.get_id_agenda())
+        self.assertEqual(self.prof1.get_id(), agenda_result.get_profissional())
 
     def test_consultar_agendamentos_cliente(self):
         rows = list(AgendamentoDao.consultar_agendamentos_cliente(self.conexao, self.cli2.get_id()))
@@ -85,13 +88,13 @@ class TestAgendamentoSQLite(unittest.TestCase):
     def test_consultar_agendamentos_data_hora(self):
         rows = list(AgendamentoDao.consultar_agendamentos_data_hora(self.conexao, dt.date(2026, 1, 10), "0900"))
         self.assertEqual(1, len(rows))
-        self.assertEqual(self.ag1.get_id(), rows[0][0])
+        self.assertEqual(self.ag1.get_id_agendamento(), rows[0][0])
 
     def test_excluir_agendamento(self):
         status = AgendamentoDao.excluir_agendamento(self.conexao, self.ag3)
         self.assertEqual(1, status)
 
-        result = AgendamentoDao.consultar_agendamento(self.conexao, self.ag3.get_id())
+        result = AgendamentoDao.consultar_agendamento(self.conexao, self.ag3.get_id_agendamento())
         self.assertEqual(-1, result)
 
 
