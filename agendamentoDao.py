@@ -55,7 +55,7 @@ class AgendamentoDao:
 
     @staticmethod
     def existe_agendamento(conexao, prof_id, data, hora):
-        comando = "select 1 from agendamentos a, agendas b where b.id_profissional = ? and b.data = ? and b.hora = ? and a.id_agenda = b.id_agenda"
+        comando = "select 1 from agendamentos a, agendas b where b.id_profissional = ? and b.data = ? and b.horario = ? and a.id_agenda = b.id_agenda"
         try:
             cursor = conexao.cursor()
             data_sql = data.strftime('%Y-%m-%d') if hasattr(data, 'strftime') else data
@@ -102,7 +102,7 @@ class AgendamentoDao:
             r_agendamentos = list()   
             parametros = (p_id_cliente,)                      
             for reg in cursor.execute(comando_consulta_agd, parametros):
-                r_agendamentos.append((reg[0], reg[1], reg[2], reg[3], reg[4]))
+                r_agendamentos.append((reg[0], reg[1], reg[2], reg[3], reg[4], reg[5]))
             return r_agendamentos
 
         except sql.DatabaseError as erro:
@@ -120,7 +120,7 @@ class AgendamentoDao:
             r_agendamentos = list()     
             parametros = (p_id_profissional,)                    
             for reg in cursor.execute(comando_consulta_agd, parametros):
-                r_agendamentos.append((reg[0], reg[1], reg[2], reg[3], reg[4]))
+                r_agendamentos.append((reg[0], reg[1], reg[2], reg[3], reg[4], reg[5]))
             return r_agendamentos
         except sql.DatabaseError as erro:
             print("Erro ao recuperar agendamento id:. {} - {}".format(p_id_profissional, erro))
@@ -137,7 +137,7 @@ class AgendamentoDao:
             r_agendamentos = list()     
             parametros = (p_id_servico,)                    
             for reg in cursor.execute(comando_consulta_agd, parametros):
-                r_agendamentos.append((reg[0], reg[1], reg[2], reg[3], reg[4]))
+                r_agendamentos.append((reg[0], reg[1], reg[2], reg[3], reg[4], reg[5]))
             return r_agendamentos
         except sql.DatabaseError as erro:
             print("Erro ao recuperar agendamento id:. {} - {}".format(p_id_servico, erro))
@@ -155,7 +155,7 @@ class AgendamentoDao:
             r_agendamentos = list()     
             parametros = (data_sql,)                    
             for reg in cursor.execute(comando_consulta_agd, parametros) :
-                r_agendamentos.append((reg[0], reg[1], reg[2], reg[3], reg[4]))
+                r_agendamentos.append((reg[0], reg[1], reg[2], reg[3], reg[4], reg[5]))
             return r_agendamentos
         except (sql.DatabaseError, TypeError, ValueError) as erro:
             print("Erro ao recuperar agendamento id:. {} - {}".format(p_data, erro))
@@ -176,7 +176,7 @@ class AgendamentoDao:
             r_agendamentos = list()            
             parametros = (data_sql, p_hora)            
             for reg in cursor.execute(comando_consulta_agd, parametros) :
-                r_agendamentos.append((reg[0], reg[1], reg[2], reg[3], reg[4]))
+                r_agendamentos.append((reg[0], reg[1], reg[2], reg[3], reg[4], reg[5]))
             return r_agendamentos
 
         except (sql.DatabaseError, TypeError, ValueError) as erro:

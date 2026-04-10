@@ -4,7 +4,6 @@ from tkinter import messagebox, ttk
 
 from agendamento import Agendamento
 from agendamentoDao import AgendamentoDao
-from agenda import Agenda
 from agendaDao import AgendaDao
 from clienteDao import ClienteDao
 from profissionalDao import ProfissionalDao
@@ -108,13 +107,23 @@ class TelaCadastroAgendamento(ttk.Frame):
                 self._carregar_agendas_disponiveis()
 
         data_fmt = self._formatar_data(data)
-        chave_agenda = f"{data_fmt} {hora}"
-        if chave_agenda not in self.agenda_map:
-            valores = list(self.agenda_combo["values"])
-            if chave_agenda not in valores:
-                valores.append(chave_agenda)
-                self.agenda_combo["values"] = valores
-            self.agenda_map[chave_agenda] = (data, hora)
+        chave_agenda = None
+        if prof_id:
+            prof_obj = ProfissionalDao.consulta_profissional_id(self.conexao, prof_id)
+            agenda = AgendaDao.consulta_agenda(self.conexao, prof_obj, data, hora) if prof_obj else -1
+            if agenda != -1:
+                chave_agenda = f"{agenda.get_id()} - {data_fmt} {hora}"
+                self.agenda_map[chave_agenda] = (agenda.get_id(), data, hora)
+
+        if chave_agenda is None:
+            chave_agenda = f"{data_fmt} {hora}"
+            if chave_agenda not in self.agenda_map:
+                self.agenda_map[chave_agenda] = (None, data, hora)
+
+        valores_combo = list(self.agenda_combo["values"])
+        if chave_agenda not in valores_combo:
+            valores_combo.append(chave_agenda)
+            self.agenda_combo["values"] = valores_combo
         self.agenda_var.set(chave_agenda)
 
     def _carregar_combos(self):
@@ -171,18 +180,17 @@ class TelaCadastroAgendamento(ttk.Frame):
             self.agenda_combo["values"] = []
             return
 
-        ocupados = set()
-        regs = AgendamentoDao.consultar_agendamentos_profissional(self.conexao, prof_id)
-        if regs != -1:
-            for reg in regs:
-                ocupados.add((reg[4], reg[5]))
-
-        for data, hora in agendas:
-            if (data, hora) in ocupados:
+        for reg in agendas:
+            if len(reg) < 5:
+                continue
+            agd_id, _prof_id, data, hora, bloqueada = reg
+            if bloqueada:
+                continue
+            if AgendamentoDao.existe_agendamento(self.conexao, prof_id, data, hora):
                 continue
             data_fmt = self._formatar_data(data)
-            chave = f"{data_fmt} {hora}"
-            self.agenda_map[chave] = (data, hora)
+            chave = f"{agd_id} - {data_fmt} {hora}"
+            self.agenda_map[chave] = (agd_id, data, hora)
             valores.append(chave)
 
         self.agenda_combo["values"] = valores
@@ -241,11 +249,11 @@ class TelaCadastroAgendamento(ttk.Frame):
             return
 
         agenda_sel = self.agenda_var.get().strip()
-        agenda = self.agenda_map.get(agenda_sel)
-        if not agenda:
+        agenda_info = self.agenda_map.get(agenda_sel)
+        if not agenda_info:
             messagebox.showerror("Validação", "Selecione uma agenda disponível.")
             return
-        data, hora = agenda
+        agenda_id, data, hora = agenda_info
 
         agenda_existe = AgendaDao.consulta_agenda(self.conexao, profissional, data, hora)
         if agenda_existe == -1:
@@ -262,8 +270,16 @@ class TelaCadastroAgendamento(ttk.Frame):
             )
             return
 
-        agenda = Agenda(profissional, data, hora)
-        agd = Agendamento(0, cliente, servico, agenda)
+        if agenda_id is None:
+            agenda_id = agenda_existe.get_id() if agenda_existe != -1 else None
+        if agenda_id is None:
+            messagebox.showerror(
+                "Erro",
+                "Não foi possível identificar a agenda selecionada. Atualize os combos e tente novamente.",
+            )
+            return
+
+        agd = Agendamento(0, cliente, servico, agenda_id)
         novo_id = AgendamentoDao.inserir_agendamentos(self.conexao, agd)
         if novo_id == -1:
             messagebox.showerror(
@@ -293,6 +309,8 @@ class TelaCadastroAgendamento(ttk.Frame):
             cid = reg[1]
             sid = reg[2]
             pid = reg[3]
+            data = reg[4] if len(reg) > 4 else ""
+            hora = reg[5] if len(reg) > 5 else ""
             cli = ClienteDao.consulta_cliente_id(self.conexao, cid)
             serv = ServicoDao.consultar_servico_id(self.conexao, sid)
             prof = ProfissionalDao.consulta_profissional_id(self.conexao, pid)
@@ -304,8 +322,8 @@ class TelaCadastroAgendamento(ttk.Frame):
                     f"{cid} - {cli.get_nome() if cli else ''}",
                     f"{sid} - {serv.get_nome_servico() if serv else ''}",
                     f"{pid} - {prof.get_nome() if prof else ''}",
-                    reg[4],
-                    reg[5],
+                    data,
+                    hora,
                 ),
             )
 

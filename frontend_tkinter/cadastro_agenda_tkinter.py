@@ -37,22 +37,31 @@ class TelaCadastroAgenda(ttk.Frame):
         self.hora_var = tk.StringVar()
         ttk.Entry(self, textvariable=self.hora_var).grid(row=2, column=1, sticky="ew", pady=4)
 
+        self.bloqueada_var = tk.IntVar(value=0)
+        ttk.Checkbutton(self, text="Bloqueada", variable=self.bloqueada_var).grid(
+            row=3, column=1, sticky="w", pady=4
+        )
+
         botoes = ttk.Frame(self)
-        botoes.grid(row=3, column=0, columnspan=2, sticky="e", pady=(8, 6))
+        botoes.grid(row=4, column=0, columnspan=2, sticky="e", pady=(8, 6))
         ttk.Button(botoes, text="Salvar", command=self._salvar).grid(row=0, column=0, padx=(0, 8))
         ttk.Button(botoes, text="Atualizar lista", command=self._carregar_profissionais).grid(row=0, column=1)
 
     def _montar_lista(self):
-        cols = ("profissional", "data", "hora")
+        cols = ("id_agenda", "profissional", "data", "hora", "bloqueada")
         self.tree = ttk.Treeview(self, columns=cols, show="headings", height=12)
+        self.tree.heading("id_agenda", text="ID Agenda")
         self.tree.heading("profissional", text="Profissional")
         self.tree.heading("data", text="Data")
         self.tree.heading("hora", text="Hora")
+        self.tree.heading("bloqueada", text="Bloqueada")
+        self.tree.column("id_agenda", width=90, anchor="center")
         self.tree.column("profissional", width=220, anchor="w")
         self.tree.column("data", width=110, anchor="center")
         self.tree.column("hora", width=80, anchor="center")
-        self.tree.grid(row=4, column=0, columnspan=2, sticky="nsew")
-        self.rowconfigure(4, weight=1)
+        self.tree.column("bloqueada", width=90, anchor="center")
+        self.tree.grid(row=5, column=0, columnspan=2, sticky="nsew")
+        self.rowconfigure(5, weight=1)
         self.tree.bind("<Double-1>", self._on_tree_double_click)
 
     def _on_tree_double_click(self, _event):
@@ -60,14 +69,17 @@ class TelaCadastroAgenda(ttk.Frame):
         if not selecionado:
             return
         valores = self.tree.item(selecionado[0], "values")
-        if not valores:
+        if not valores or len(valores) < 5:
             return
-        if len(valores) == 3:
-            _, data, hora = valores
-        else:
-            data, hora = valores
+        _, prof_txt, data, hora, bloqueada_txt = valores
+        prof_id = self._extrair_id(prof_txt)
+        if prof_id:
+            chave = self._chave_por_id(self.prof_map, prof_id)
+            if chave:
+                self.prof_var.set(chave)
         self.data_var.set(self._formatar_data(data))
         self.hora_var.set(str(hora))
+        self.bloqueada_var.set(1 if str(bloqueada_txt).lower().startswith("s") else 0)
 
     @staticmethod
     def _formatar_data(data):
@@ -80,6 +92,23 @@ class TelaCadastroAgenda(ttk.Frame):
                 return dt.datetime.strptime(str(data), "%d/%m/%Y").strftime("%d/%m/%Y")
             except (ValueError, TypeError):
                 return str(data)
+
+    @staticmethod
+    def _extrair_id(valor):
+        if valor is None:
+            return None
+        texto = str(valor).strip()
+        if not texto:
+            return None
+        parte = texto.split("-", 1)[0].strip()
+        return int(parte) if parte.isdigit() else None
+
+    @staticmethod
+    def _chave_por_id(mapa, alvo_id):
+        for chave, valor in mapa.items():
+            if valor == alvo_id:
+                return chave
+        return None
 
     def _carregar_profissionais(self):
         self.prof_map.clear()
@@ -124,7 +153,8 @@ class TelaCadastroAgenda(ttk.Frame):
             messagebox.showerror("Validação", "Data inválida. Use dd/mm/aaaa.")
             return
 
-        agenda = Agenda(prof, data, hora)
+        bloqueada = 1 if self.bloqueada_var.get() else 0
+        agenda = Agenda(prof, data, hora, p_bloqueada=bloqueada)
         ret = AgendaDao.inserir_agenda(self.conexao, agenda)
         if ret == -1:
             messagebox.showerror("Erro", "Não foi possível inserir a agenda.")
@@ -133,6 +163,7 @@ class TelaCadastroAgenda(ttk.Frame):
         messagebox.showinfo("Sucesso", "Horário de agenda cadastrado.")
         self.data_var.set("")
         self.hora_var.set("")
+        self.bloqueada_var.set(0)
         self._carregar_agendas_do_profissional()
 
     def _carregar_agendas_do_profissional(self):
@@ -143,10 +174,11 @@ class TelaCadastroAgenda(ttk.Frame):
             registros = AgendaDao.consulta_agendas(self.conexao)
             if registros == -1:
                 return
-            for prof_id, data, hora in registros:
+            for agd_id, prof_id, data, hora, bloqueada in registros:
                 prof = ProfissionalDao.consulta_profissional_id(self.conexao, prof_id)
                 nome = f"{prof_id} - {prof.get_nome()} {prof.get_sobrenome()}" if prof else str(prof_id)
-                self.tree.insert("", tk.END, values=(nome, data, hora))
+                status = "Sim" if bloqueada else "Não"
+                self.tree.insert("", tk.END, values=(agd_id, nome, data, hora, status))
             return
 
         prof = self._profissional_selecionado()
@@ -156,8 +188,9 @@ class TelaCadastroAgenda(ttk.Frame):
         if registros == -1:
             return
         nome = f"{prof.get_id()} - {prof.get_nome()} {prof.get_sobrenome()}"
-        for data, hora in registros:
-            self.tree.insert("", tk.END, values=(nome, data, hora))
+        for agd_id, _prof_id, data, hora, bloqueada in registros:
+            status = "Sim" if bloqueada else "Não"
+            self.tree.insert("", tk.END, values=(agd_id, nome, data, hora, status))
 
 
 def main():
